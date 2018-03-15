@@ -134,15 +134,15 @@ function getPullRequestsPage(branch, state, start, size) {
 }
 
 function getJiraIssues(prId) {
-    return getJiraIssuesPage(prId).then(res => {
-        return res
-            .filter(issue => issue.key)
-            .map(issue => issue.key);
-    })
+	return getJiraIssuesPage(prId).then(res => {
+		return res
+			.filter(issue => issue.key)
+			.map(issue => issue.key);
+	})
 }
 
 function getJiraIssuesPage(prId) {
-    return serviceCall(`${settings.jiraBaseUrl}/pull-requests/${prId}/issues`)
+	return serviceCall(`${settings.jiraBaseUrl}/pull-requests/${prId}/issues`)
 }
 
 function getTags(start, size, max, tags) {
@@ -279,7 +279,7 @@ function renderDate(timestamp, format) {
 }
 
 function renderJiras(pr) {
-    const jiras = [ ...new Set(pr.issues) ]
+	const jiras = [ ...new Set(pr.issues) ]
 	if (jiras.length) {
 		if (settings.jira) {
 			return ` (${jiras.map(id => `[${id}](${settings.jira}/browse/${id})`).join(', ')})`
