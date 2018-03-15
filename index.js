@@ -46,11 +46,13 @@ function *getSettings(program) {
 	if (!pswd && program.interactive) settings.password = yield prompt.password('password: ')
 
 	if (!settings.basePath) settings.basePath = '/rest/api/1.0/projects'
+	if (!settings.jiraBasePath) settings.jiraBasePath = '/rest/jira/1.0/projects'
 
 	settings.overwrite = !!program.overwrite
 	settings.branch = program.branch || 'master'
 	settings.file = settings.file ? path.resolve(settings.file) : path.resolve(DEFAULT_FILE)
 	settings.baseUrl = `${settings.bitbucket}${settings.basePath}/${settings.projectKey}/repos/${settings.repositoryKey}`
+	settings.jiraBaseUrl = `${settings.bitbucket}${settings.jiraBasePath}/${settings.projectKey}/repos/${settings.repositoryKey}`
 	settings.fileContents = read(settings.file)
 
 	verifySettings(settings)
@@ -131,6 +133,18 @@ function getPullRequestsPage(branch, state, start, size) {
 	return serviceCall(`${settings.baseUrl}/pull-requests?state=${state}&order=NEWEST&at=refs/heads/${branch}&start=${start}&limit=${size}`)
 }
 
+function getJiraIssues(prId) {
+    return getJiraIssuesPage(prId).then(res => {
+        return res
+            .filter(issue => issue.key)
+            .map(issue => issue.key);
+    })
+}
+
+function getJiraIssuesPage(prId) {
+    return serviceCall(`${settings.jiraBaseUrl}/pull-requests/${prId}/issues`)
+}
+
 function getTags(start, size, max, tags) {
 	return getTagsPage(start, size).then(res => {
 		tags = (tags || []).concat(res.values)
@@ -181,6 +195,10 @@ function *buildReleases() {
 	const childPrPromises = prs.map(pr => getPullRequests(pr.fromRef.displayId, 'MERGED', null, 0, 25))
 	const childPrs = yield childPrPromises
 	prs.forEach((pr, i) => pr.children = childPrs[i])
+
+	const issuesPromises = prs.map(pr => getJiraIssues(pr.id))
+	const issues = yield issuesPromises
+	prs.forEach((pr, i) => pr.issues = issues[i])
 
 	let release = { version: settings.version, prs: [], date: Date.now() }
 	let lastTag = tags.shift()
@@ -261,11 +279,7 @@ function renderDate(timestamp, format) {
 }
 
 function renderJiras(pr) {
-	const m1 = (pr.title || '').match(JIRA_REGEX)
-	const m2 = (pr.description || '').match(JIRA_REGEX)
-	const m3 = (pr.fromRef.displayId || '').match(JIRA_REGEX)
-	const comb = (m1 || []).concat(m2 ||[]).concat(m3 || [])
-	const jiras = [ ...new Set(comb) ]
+    const jiras = [ ...new Set(pr.issues) ]
 	if (jiras.length) {
 		if (settings.jira) {
 			return ` (${jiras.map(id => `[${id}](${settings.jira}/browse/${id})`).join(', ')})`
